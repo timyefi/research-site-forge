@@ -1,11 +1,17 @@
 ---
 name: "个人网站一键搭建"
 description: "为买方研究者/固收分析师一键搭建个人研究网站（个人主页、研报库、数据看板、研究笔记、求职/展示页），并100%自动化部署到国内可访问的免费托管平台（腾讯 EdgeOne Makers / GitHub Pages / Cloudflare Pages / Sealos 对象存储）。套用 fioutput 投行级设计体系，无需懂代码，本地内容一键上线。触发场景：搭建个人网站、个人主页、研报库、研究笔记站、数据看板、简历页、把本地HTML/MD部署上线、获取免费域名、发布个人研究服务。"
+author: "叶青"
+license: "个人研究平台部署许可（非商业免费/商用需授权）"
+repo: "https://github.com/timyefi/research-site-forge"
 ---
 
-# 个人网站一键搭建（Site Forge）
+# 个人研究平台部署（Site Forge）
 
 > 给买方老师的一键建站 + 免费部署方案。**套用 fioutput 投行级设计体系**，本地生成、100% 自动化部署、国内可访问。
+
+> **开源仓库**：<https://github.com/timyefi/research-site-forge>（公开）
+> **版权与许可**：© 2026 叶青。本项目按**非商业免费 / 商用需授权**模式开源——个人学习、研究、教学、非盈利性个人网站搭建免费；任何商业用途（收费服务、企业商业化系统等）须事先获得原作者书面授权。详见 [LICENSE](LICENSE)。
 
 ## 触发条件
 
