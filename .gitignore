@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# 部署产物（不要提交）
+dist/
+demo-site/
+test-site/
+*.log
+
+# 凭证与本地配置
+.env
+.edgeone/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/

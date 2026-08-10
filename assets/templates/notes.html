@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{SITE_TITLE}}</title>
+  <meta name="description" content="{{SITE_DESC}}">
+  <meta property="og:title" content="{{SITE_TITLE}}">
+  <meta property="og:description" content="{{SITE_DESC}}">
+  <meta property="og:url" content="{{SITE_URL}}">
+  <meta property="og:type" content="website">
+  <style>{{CSS}}</style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="wrap">
+    <a class="logo" href="./index.html">{{LOGO}}</a>
+    <nav class="nav">
+      {{NAV_LINKS}}
+    </nav>
+  </div>
+</header>
+
+<section class="section">
+  <div class="wrap">
+    <h2>{{SITE_TITLE}}</h2>
+    <p class="lead">{{SITE_DESC}}</p>
+    <div class="filter-bar">
+      <input type="search" id="q" placeholder="搜索笔记/文章…">
+      <span id="chips"></span>
+    </div>
+    <ul class="report-list" id="list">
+      {{NOTE_ITEMS}}
+    </ul>
+  </div>
+</section>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <span>{{FOOTER_LEFT}}</span>
+    <span>{{FOOTER_RIGHT}}</span>
+  </div>
+</footer>
+
+<script>
+(function () {
+  var items = {{NOTES_JSON}};
+  var q = document.getElementById('q');
+  var chipsBox = document.getElementById('chips');
+  var list = document.getElementById('list');
+  var tags = [];
+  items.forEach(function (it) { it.tags.forEach(function (t) { if (tags.indexOf(t) < 0) tags.push(t); }); });
+  var activeTag = '';
+  tags.forEach(function (t) {
+    var c = document.createElement('button');
+    c.className = 'chip'; c.textContent = t;
+    c.onclick = function () {
+      if (activeTag === t) { activeTag = ''; c.classList.remove('active'); }
+      else { activeTag = t; var all = chipsBox.querySelectorAll('.chip'); for (var i = 0; i < all.length; i++) all[i].classList.remove('active'); c.classList.add('active'); }
+      render();
+    };
+    chipsBox.appendChild(c);
+  });
+  function render() {
+    var kw = (q.value || '').trim().toLowerCase();
+    var html = '';
+    items.forEach(function (it) {
+      if (activeTag && it.tags.indexOf(activeTag) < 0) return;
+      if (kw && (it.title + ' ' + (it.desc || '')).toLowerCase().indexOf(kw) < 0) return;
+      html += '<li><div><a class="t" href="' + it.url + '">' + it.title + '</a>' +
+              (it.desc ? '<div class="desc">' + it.desc + '</div>' : '') +
+              '<div class="tag-row" style="margin-top:4px">' + it.tags.map(function (t) { return '<span class="tag">' + t + '</span>'; }).join('') + '</div></div>' +
+              '<span class="d">' + it.date + '</span></li>';
+    });
+    list.innerHTML = html || '<li style="color:var(--c-muted)">暂无匹配内容</li>';
+  }
+  q.addEventListener('input', render);
+  render();
+})();
+</script>
+
+</body>
+</html>

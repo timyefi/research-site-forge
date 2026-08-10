@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{SITE_TITLE}}</title>
+  <meta name="description" content="{{SITE_DESC}}">
+  <meta property="og:title" content="{{SITE_TITLE}}">
+  <meta property="og:description" content="{{SITE_DESC}}">
+  <meta property="og:url" content="{{SITE_URL}}">
+  <meta property="og:type" content="article">
+  <style>{{CSS}}</style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="wrap">
+    <a class="logo" href="./index.html">{{LOGO}}</a>
+    <nav class="nav">
+      {{NAV_LINKS}}
+    </nav>
+  </div>
+</header>
+
+<section class="section">
+  <div class="wrap prose">
+    <h1>{{ARTICLE_TITLE}}</h1>
+    <p style="color:var(--c-muted);font-size:13px;">{{ARTICLE_META}}</p>
+    {{ARTICLE_BODY}}
+    <p style="margin-top:32px;color:var(--c-muted);font-size:13px;">— {{ARTICLE_SOURCE}}</p>
+  </div>
+</section>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <span>{{FOOTER_LEFT}}</span>
+    <span>{{FOOTER_RIGHT}}</span>
+  </div>
+</footer>
+
+</body>
+</html>

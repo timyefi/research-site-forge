@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{SITE_TITLE}}</title>
+  <meta name="description" content="{{SITE_DESC}}">
+  <meta property="og:title" content="{{SITE_TITLE}}">
+  <meta property="og:description" content="{{SITE_DESC}}">
+  <meta property="og:url" content="{{SITE_URL}}">
+  <meta property="og:type" content="website">
+  <style>{{CSS}}</style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="wrap">
+    <a class="logo" href="./index.html">{{LOGO}}</a>
+    <nav class="nav">
+      {{NAV_LINKS}}
+    </nav>
+  </div>
+</header>
+
+<section class="section">
+  <div class="wrap">
+    <h2>{{SITE_TITLE}}</h2>
+    <p class="lead">{{SITE_DESC}}</p>
+    <div class="filter-bar">
+      <input type="search" id="q" placeholder="搜索研报标题/关键词…">
+      <span id="chips"></span>
+    </div>
+    <div class="table-wrap">
+      <table id="report-table">
+        <thead>
+          <tr><th>标题</th><th>类型</th><th>日期</th><th>摘要</th></tr>
+        </thead>
+        <tbody id="rows">
+          {{REPORT_ROWS}}
+        </tbody>
+      </table>
+    </div>
+    <p class="lead" style="color:var(--c-muted);font-size:13px;">数据截至 {{LAST_UPDATED}}</p>
+  </div>
+</section>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <span>{{FOOTER_LEFT}}</span>
+    <span>{{FOOTER_RIGHT}}</span>
+  </div>
+</footer>
+
+<script>
+(function () {
+  var rows = {{REPORT_JSON}};
+  var q = document.getElementById('q');
+  var chipsBox = document.getElementById('chips');
+  var tbody = document.getElementById('rows');
+
+  var types = [];
+  rows.forEach(function (r) { if (types.indexOf(r.type) < 0) types.push(r.type); });
+  var activeType = '';
+  types.forEach(function (t) {
+    var c = document.createElement('button');
+    c.className = 'chip'; c.textContent = t;
+    c.onclick = function () {
+      if (activeType === t) { activeType = ''; c.classList.remove('active'); }
+      else { activeType = t; var all = chipsBox.querySelectorAll('.chip'); for (var i = 0; i < all.length; i++) all[i].classList.remove('active'); c.classList.add('active'); }
+      render();
+    };
+    chipsBox.appendChild(c);
+  });
+
+  function render() {
+    var kw = (q.value || '').trim().toLowerCase();
+    var html = '';
+    rows.forEach(function (r) {
+      if (activeType && r.type !== activeType) return;
+      if (kw && (r.title + ' ' + r.desc).toLowerCase().indexOf(kw) < 0) return;
+      html += '<tr><td><a class="t" href="' + r.url + '">' + r.title + '</a></td>' +
+              '<td>' + r.type + '</td><td>' + r.date + '</td><td>' + r.desc + '</td></tr>';
+    });
+    tbody.innerHTML = html || '<tr><td colspan="4" style="color:var(--c-muted)">暂无匹配研报</td></tr>';
+  }
+  q.addEventListener('input', render);
+  render();
+})();
+</script>
+
+</body>
+</html>

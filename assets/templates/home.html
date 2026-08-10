@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{SITE_TITLE}}</title>
+  <meta name="description" content="{{SITE_DESC}}">
+  <meta property="og:title" content="{{SITE_TITLE}}">
+  <meta property="og:description" content="{{SITE_DESC}}">
+  <meta property="og:url" content="{{SITE_URL}}">
+  <meta property="og:type" content="website">
+  <style>{{CSS}}</style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="wrap">
+    <a class="logo" href="./index.html">{{LOGO}}</a>
+    <nav class="nav">
+      {{NAV_LINKS}}
+    </nav>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="wrap">
+    <h1>{{HERO_TITLE}}</h1>
+    <p class="subtitle">{{HERO_SUBTITLE}}</p>
+    <p class="meta">{{HERO_META}}</p>
+    {{HERO_CTA}}
+  </div>
+</section>
+
+{{SECTIONS}}
+
+<footer class="site-footer">
+  <div class="wrap">
+    <span>{{FOOTER_LEFT}}</span>
+    <span>{{FOOTER_RIGHT}}</span>
+  </div>
+</footer>
+
+</body>
+</html>
