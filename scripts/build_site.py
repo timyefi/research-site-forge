@@ -18,7 +18,7 @@ config.json 结构示例（init_project.py 会生成）:
     "desc": "一句话介绍",
     "nav": [ {"label": "首页", "url": "index.html"}, ... ],
     "theme": { "primary": "#051C2C", "accent": "#C0392B" },
-    "site_url": "https://xxx.edgeone.site",
+    "site_url": "https://xxx.researches.cn",
     "footer_left": "© 2026 XX",
     "footer_right": "数据来源：XX",
     "last_updated": "2026-08-10"
@@ -493,7 +493,7 @@ DEMO_CONFIG = {
             {"label": "研究笔记", "url": "notes.html"},
         ],
         "theme": {"primary": "#051C2C", "accent": "#C0392B"},
-        "site_url": "https://example.edgeone.site",
+        "site_url": "https://example.researches.cn",
         "footer_left": "© 2026 张三",
         "footer_right": "数据来源：自有研究",
         "last_updated": "2026-08-10",

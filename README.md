@@ -9,7 +9,7 @@
 - **一键建站**：个人主页 / 研报库 / 数据看板 / 研究笔记 / 简历页，5 类站点模板 + 1 篇文章页模板
 - **fioutput 设计体系**：内置 Navy 投行级设计系统（`assets/templates/base.css`，可自定义主题色）
 - **100% 自动化部署**：自动检测可用工具链并部署，全程无需手动命令
-- **国内可访问**：默认腾讯 EdgeOne（快且免费），三级部署通道 + GitHub Pages / Cloudflare / Sealos 兜底
+- **国内可访问**：默认 SiteForge 平台（`*.researches.cn` 二级域名，零账号），备选腾讯 EdgeOne / GitHub Pages / Cloudflare / Sealos
 
 ## 快速开始
 
@@ -28,12 +28,14 @@ python scripts/deploy.py --site-dir my-site/dist --name my-site
 
 | 平台 | 国内访问 | 费用 | 自动化 | 定位 |
 |------|---------|------|--------|------|
-| **腾讯 EdgeOne Makers** | ⭐ 快且稳 | 免费（40 项目/5GB/500 构建·月） | 三级通道：CLI+Token / 登录态 / MCP 免认证 | **默认方案** |
+| **SiteForge 平台（*.researches.cn）** | ⭐ 快且稳（Sealos 国内节点） | 作者自托管、**0 成本** | 一个 POST 请求、**无需任何账号** | **默认方案** |
+| **腾讯 EdgeOne Makers** | ⭐ 快且稳 | 免费（40 项目/5GB/500 构建·月） | 三级通道：CLI+Token / 登录态 / MCP 免认证 | 备选 |
 | **EdgeOne MCP 分享链接** | 快且稳 | 免费、**无需账号** | 官方公开 MCP 端点 | 零门槛兜底（受内容策略限制） |
 | GitHub Pages | 不稳定 | 免费 | git + token | 备选 / 海外 |
 | Cloudflare Pages | 一般 | 免费 | wrangler + token | 备选 |
-| Sealos 对象存储 | 快 | 个人资源 | S3 直传 | 临时分享 |
+| Sealos 对象存储 | 快 | 个人资源 | S3 直传 | 内部/临时分享（私有桶） |
 
+> **SiteForge 零账号**：一个 POST 即部署到 `https://<站点名>.researches.cn/`，无需注册任何账号 / Token / 备案。
 > **EdgeOne 三级通道**：① CLI+API Token（自有项目）→ ② CLI 已登录态 → ③ MCP 免认证（无需账号，分享链接）。即使没有腾讯云账号也能一键上线。
 
 ## 目录结构
@@ -51,7 +53,7 @@ python scripts/deploy.py --site-dir my-site/dist --name my-site
 └── scripts/
     ├── init_project.py         ← 交互式初始化 → config.json
     ├── build_site.py           ← config.json → 自包含静态站点（含 Markdown 渲染）
-    └── deploy.py               ← 100% 自动化部署器（edgeone→github→cloudflare→sealos）
+    └── deploy.py               ← 100% 自动化部署器（researches→edgeone→github→cloudflare→sealos）
 ```
 
 ## 复用关系

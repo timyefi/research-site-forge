@@ -17,7 +17,7 @@ import sys
 from datetime import date
 from pathlib import Path
 
-BASE_URL_PLACEHOLDER = "https://YOUR-SITE.edgeone.site"
+BASE_URL_PLACEHOLDER = "https://YOUR-SITE.researches.cn"
 
 SITE_TYPES = {
     "home": "个人主页（名片 + 研究方向 + 最新研报 + 联系方式）",
@@ -104,7 +104,7 @@ def make_config(stype, title, logo, desc, name, use_defaults):
         cfg["experience_title"] = "工作经历"
         cfg["skills_title"] = "专业能力"
     if use_defaults:
-        cfg["site"]["site_url"] = "https://%s.edgeone.site" % name
+        cfg["site"]["site_url"] = "https://%s.researches.cn" % name
     return cfg
 
 

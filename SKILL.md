@@ -1,6 +1,6 @@
 ---
 name: "个人网站一键搭建"
-description: "为买方研究者/固收分析师一键搭建个人研究网站（个人主页、研报库、数据看板、研究笔记、求职/展示页），并100%自动化部署到国内可访问的免费托管平台（腾讯 EdgeOne Makers / GitHub Pages / Cloudflare Pages / Sealos 对象存储）。套用 fioutput 投行级设计体系，无需懂代码，本地内容一键上线。触发场景：搭建个人网站、个人主页、研报库、研究笔记站、数据看板、简历页、把本地HTML/MD部署上线、获取免费域名、发布个人研究服务。"
+description: "为买方研究者/固收分析师一键搭建个人研究网站（个人主页、研报库、数据看板、研究笔记、求职/展示页），并100%自动化部署到国内可访问的托管平台（默认 SiteForge 平台 *.researches.cn 二级域名，零账号；备选腾讯 EdgeOne Makers / GitHub Pages / Cloudflare Pages / Sealos 对象存储）。套用 fioutput 投行级设计体系，无需懂代码，本地内容一键上线。触发场景：搭建个人网站、个人主页、研报库、研究笔记站、数据看板、简历页、把本地HTML/MD部署上线、获取免费域名、发布个人研究服务。"
 author: "叶青"
 license: "个人研究平台部署许可（非商业免费/商用需授权）"
 repo: "https://github.com/timyefi/research-site-forge"
@@ -29,7 +29,8 @@ repo: "https://github.com/timyefi/research-site-forge"
 | **一键建站** | 用户只描述需求（几句话），AI 套用 fioutput 设计体系自动生成完整站点 |
 | **5 类站点模板** | 个人主页 / 研报库 / 数据看板 / 研究笔记 / 简历页 |
 | **100% 自动化部署** | `deploy.py` 自动检测可用工具链 → 自动部署 → 打印访问链接，无需手动操作 |
-| **国内可访问** | 默认走腾讯 EdgeOne Makers（国内快、免费、**三级部署通道：CLI+Token → 登录态 → MCP 免认证**，即使无账号也能一键上线） |
+| **默认零账号上线** | 默认走 **SiteForge 平台（`*.researches.cn` 二级域名）**：一个 POST 请求即完成部署，**无需注册任何账号 / Token / 备案** |
+| **国内可访问** | SiteForge 托管在 Sealos 国内节点；备选腾讯 EdgeOne Makers（**三级部署通道：CLI+Token → 登录态 → MCP 免认证**） |
 | **设计体系** | 内置 `assets/templates/base.css`（fioutput Navy 风格，可自定义主题色） |
 
 ## 三步工作流（全程自动化）
@@ -49,6 +50,7 @@ python scripts/build_site.py --config config.json --out dist/
 - AI 根据用户需求**自动生成** `config.json`（站点类型、标题、主题色、栏目、内容）
 - 也可以让用户先 `python scripts/init_project.py <站点目录>` 初始化，再按提示回答几个问题
 - 生成的站点为**自包含静态 HTML**（单文件优先，零外部依赖），套用 fioutput 设计体系
+- **AI 建议**：生成时把 `site.site_url` 先留占位符或留空；部署后 `deploy.py` 会自动回写真实地址
 
 **5 类站点类型**（`--template` 参数）：
 
@@ -75,22 +77,27 @@ python -m http.server 8848 --directory dist/
 python scripts/deploy.py --site-dir dist/ --name <站点名>
 ```
 
+- **`--name` 可不填**：缺省自动从站点标题生成合法站点名（中文标题自动加后缀避免冲突）
+- 部署成功后自动**在线验证**站点可访问，并把真实地址回写 `config.json` 的 `site.site_url`（让下次 build 的 OG 分享标签指向正确链接）
+
 `deploy.py` **自动检测可用工具链并按优先级选择**，全程无需手动操作：
 
 ```
 检测顺序（自动跳过不可用的）：
-  1. edgeone CLI + API Token 已配置     → EdgeOne ① 正式域名（腾讯官方、国内快、免费）★默认
-  2. edgeone CLI 已登录                  → EdgeOne ② 正式域名（同上）
-  3. edgeone 任意状态（含无 CLI）         → EdgeOne ③ MCP 免认证分享链接（零门槛兜底，无需账号）
-  4. git + GITHUB_TOKEN 已配置          → GitHub Pages（海外用户/备选）
-  5. wrangler 已登录                    → Cloudflare Pages（备选）
-  6. .env 有 Sealos S3 凭证             → Sealos 对象存储（临时/紧急分享）
-  7. 全部不可用                          → 打印清晰的配置引导，提示配置后重跑
+  1. researches API 可达（默认 https://api.researches.cn）→ SiteForge 平台 ★默认
+       站点链接: https://<站点名>.researches.cn/   （S3 私有桶存储 + 平台网关代理）
+  2. edgeone CLI + API Token 已配置     → EdgeOne ① 正式域名（腾讯官方、国内快、免费）
+  3. edgeone CLI 已登录                  → EdgeOne ② 正式域名（同上）
+  4. edgeone 任意状态（含无 CLI）         → EdgeOne ③ MCP 免认证分享链接（零门槛兜底，无需账号）
+  5. git + GITHUB_TOKEN 已配置          → GitHub Pages（海外用户/备选）
+  6. wrangler 已登录                    → Cloudflare Pages（备选）
+  7. .env 有 Sealos S3 凭证             → Sealos 对象存储（临时/紧急分享）
+  8. 全部不可用                          → 打印清晰的配置引导，提示配置后重跑
 ```
 
-部署完成后打印：**访问链接 / 管理地址 / 更新方法**。
+部署完成后打印：**访问链接 / 在线验证 / 更新方法 / 删除方法**。
 
-> **100% 自动化原则**：部署过程不要求用户记住任何命令。**即使没有腾讯云账号**，EdgeOne ③ MCP 免认证通道也能一键上线（分享链接）；配置了 API Token 则自动升级为正式域名。配置 Token 只需一次（每个平台都提供了**图形化控制台几步点击**的获取方式，见 `references/`）。此后每次更新网站都是"改内容 → 重新 build → 重新 deploy"一条命令。
+> **100% 自动化原则**：部署过程不要求用户记住任何命令。**默认走 SiteForge 平台，零账号零配置**——只要运行环境能访问 `api.researches.cn`（国内均可），部署命令一个 POST 即完成，站点即上线 `https://<站点名>.researches.cn/`。若 SiteForge 不可达才降级到 EdgeOne（MCP 免认证通道也能一键上线分享链接）。此后每次更新网站都是"改内容 → 重新 build → 重新 deploy"一条命令，同名覆盖、新内容立即生效。
 
 ## 目录结构
 
@@ -98,7 +105,7 @@ python scripts/deploy.py --site-dir dist/ --name <站点名>
 个人网站一键搭建/
 ├── SKILL.md                     ← 本文件（入口）
 ├── references/
-│   ├── providers.md             ← 托管方案对比表 + 凭证配置（EdgeOne 主推）
+│   ├── providers.md             ← 托管方案对比表 + 凭证配置（SiteForge 默认 / EdgeOne 主推备选）
 │   └── edgeone-setup.md         ← EdgeOne CLI 安装 / 登录 / API Token 获取详细步骤
 ├── assets/
 │   └── templates/
@@ -107,20 +114,21 @@ python scripts/deploy.py --site-dir dist/ --name <站点名>
 └── scripts/
     ├── init_project.py          ← 初始化：问答式生成 config.json
     ├── build_site.py            ← 生成站点：config.json → dist/ 自包含静态站点
-    └── deploy.py                ← 全自动部署：检测工具链 → 部署 → 打印链接
+    └── deploy.py                ← 全自动部署：检测工具链 → 部署 → 在线验证 → 回写 site_url
 ```
 
 ## 部署平台总览（完整对比见 `references/providers.md`）
 
 | 平台 | 国内访问 | 费用 | 自动化 | 定位 |
 |------|---------|------|--------|------|
-| **腾讯 EdgeOne Makers** | ⭐ 快且稳 | 免费（40 项目/5GB/500 构建·月） | 三级通道：CLI+token / 登录态 / MCP 免认证 | **默认方案** |
-| **EdgeOne MCP 分享链接** | 快且稳 | 免费、**无需账号** | 官方公开 MCP 端点 | 零门槛兑底（受内容策略限制） |
+| **SiteForge 平台（*.researches.cn）** | ⭐ 快且稳（Sealos 国内节点） | 作者自托管、**0 成本** | 一个 POST 请求、**无需任何账号** | **默认方案** |
+| **腾讯 EdgeOne Makers** | ⭐ 快且稳 | 免费（40 项目/5GB/500 构建·月） | 三级通道：CLI+token / 登录态 / MCP 免认证 | 备选 |
+| **EdgeOne MCP 分享链接** | 快且稳 | 免费、**无需账号** | 官方公开 MCP 端点 | 零门槛兜底（受内容策略限制） |
 | GitHub Pages | 不稳定 | 免费（100GB/月） | git + token | 备选 / 海外 |
 | Cloudflare Pages | 一般 | 免费 | wrangler + token | 备选 |
-| Sealos 对象存储 | 快 | 个人资源 | S3 直传 | 临时分享 |
+| Sealos 对象存储 | 快 | 个人资源 | S3 直传 | 内部/临时分享（私有桶） |
 
-> **为什么默认 EdgeOne**：腾讯官方产品、国内边缘加速访问快、免费版 40 个项目对个人绰绰有余、CLI 支持 `-t <token>` 无交互部署（天然适配 AI 自动化）、平台默认域名无需备案（自定义域名才需备案）。**零门槛入口**：未登录/无 token 时自动走官方 MCP 免认证通道（分享链接），实现 100% 自动化。
+> **为什么默认 SiteForge**：作者自托管的公开平台，Sealos 国内节点访问快、免费、**零账号零备案零配置**，`deploy.py` 一个 POST 即上线 `*.researches.cn` 二级域名。EdgeOne 作为国内优质备选：腾讯官方产品、CLI 支持 `-t <token>` 无交互部署、平台默认域名无需备案；未登录/无 token 时自动走官方 MCP 免认证通道（分享链接），同样 100% 自动化。
 
 ## 与 site-deploy / fioutput 的复用关系
 
@@ -136,8 +144,8 @@ python scripts/deploy.py --site-dir dist/ --name <站点名>
 ## 质量标准（Gate）
 
 1. **可部署**：`dist/` 下所有文件为纯静态、无构建依赖；`index.html` 自包含可离线打开
-2. **国内可访问**：默认目标 EdgeOne；若用户明确要求其他平台再切换
-3. **100% 自动化**：deploy 全流程无需用户输入命令；凭证缺失时给出图形化获取步骤后重跑即可
+2. **国内可访问**：默认目标 SiteForge（`*.researches.cn`）；若用户明确要求其他平台再切换
+3. **100% 自动化**：deploy 全流程无需用户输入命令；SiteForge 零账号即可用，凭证缺失时给出图形化获取步骤后重跑即可
 4. **fioutput 风格**：页面遵循 base.css 设计体系（Navy 主色、无圆角/渐变/斑马纹、来源标注）
 5. **移动端可用**：`@media (max-width: 640px)` 响应式适配
 6. **可更新**：改 config.json → 重新 build → 重新 deploy 即完成站点更新（同一站点名覆盖）

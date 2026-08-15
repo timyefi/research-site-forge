@@ -4,18 +4,20 @@
 deploy.py — 个人网站一键搭建 . 100% 自动化部署器
 
 自动检测本地可用工具链并按优先级部署:
-  1. edgeone CLI（已登录 或 ~/.site-forge/config.json 有 edgeone.api_token）-> 腾讯 EdgeOne Makers（默认）
-  2. git + GITHUB_TOKEN / github token 已配置                              -> GitHub Pages（备选）
-  3. wrangler 已登录                                                       -> Cloudflare Pages（备选）
-  4. site-deploy/.env 或 ~/.site-forge/config.json 有 Sealos S3 凭证        -> Sealos 对象存储（临时分享）
-  5. 全部不可用 -> 打印配置引导（图形化步骤），提示配置后重跑
+  1. researches API 可用（~/.site-forge/config.json 有 researches.api_endpoint）-> SiteForge 平台（*.researches.cn 二级域名）★默认
+  2. edgeone CLI（已登录 或 ~/.site-forge/config.json 有 edgeone.api_token）-> 腾讯 EdgeOne Makers
+  3. git + GITHUB_TOKEN / github token 已配置                              -> GitHub Pages（备选）
+  4. wrangler 已登录                                                       -> Cloudflare Pages（备选）
+  5. site-deploy/.env 或 ~/.site-forge/config.json 有 Sealos S3 凭证        -> Sealos 对象存储（临时分享）
+  6. 全部不可用 -> 打印配置引导（图形化步骤），提示配置后重跑
 
 用法:
-  python deploy.py --site-dir dist/ --name my-site [--provider edgeone|github|cloudflare|sealos] [--title "标题"]
+  python deploy.py --site-dir dist/ --name my-site [--provider researches|edgeone|github|cloudflare|sealos] [--title "标题"]
 """
 import argparse
 import base64
 import json
+import mimetypes
 import os
 import shutil
 import subprocess
@@ -26,12 +28,36 @@ from pathlib import Path
 HOME = Path.home()
 SFORGE_DIR = HOME / ".site-forge"
 CONFIG_PATH = SFORGE_DIR / "config.json"
+# 站点访问/平台主域名
+RESEARCHES_API_URL = "https://api.researches.cn"
 
 # 本项目根（scripts/ 的上一级）
 SKILL_ROOT = Path(__file__).resolve().parent.parent
 
 
 # --------------------------- 工具 ---------------------------
+
+import re
+import string
+
+def slugify(text, maxlen=32):
+    """把任意文本转为合法站点名（小写字母数字连字符，不以 - 首尾）。
+
+    确定性生成：同一标题总是得到同一站点名（保证更新可覆盖同名站点）。
+    全非 ASCII（如纯中文）时，用标题的确定性哈希生成后缀避免冲突。
+    """
+    s = re.sub(r"[^a-zA-Z0-9]+", "-", str(text)).strip("-").lower()
+    s = re.sub(r"-+", "-", s)[:maxlen].strip("-")
+    if not s:
+        # 确定性哈希：同一标题 → 同一后缀
+        import hashlib
+        h = hashlib.sha1(str(text).encode("utf-8")).hexdigest()[:6]
+        s = "site" + h
+    return s
+
+def valid_name(name):
+    """与平台一致的站点名校验"""
+    return bool(re.match(r"^[a-z0-9](?:[a-z0-9-]{0,60}[a-z0-9])?$", name))
 
 def log(msg):
     print("[deploy] %s" % msg)
@@ -94,6 +120,129 @@ def find_sealos_env():
                 "public_base_url": public_base,
             }
     return None
+
+
+# --------------------------- SiteForge 平台（*.researches.cn） ---------------------------
+
+def _researches_api(cfg):
+    return (cfg.get("researches") or {}).get("api_endpoint") or RESEARCHES_API_URL
+
+def detect_researches(cfg):
+    """检测 SiteForge 平台 API 是否可用（api.researches.cn）"""
+    api = _researches_api(cfg)
+    try:
+        req = urllib.request.Request(api.rstrip("/") + "/healthz", headers={"User-Agent": "site-forge/1.0"})
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            if resp.status == 200:
+                return True, "researches (*.researches.cn 二级域名)"
+    except Exception as e:
+        warn("researches 平台不可达: %s" % e)
+    return False, "researches API 不可达"
+
+def deploy_researches(cfg, site_dir, name, title):
+    """通过 api.researches.cn 部署到 *.researches.cn（S3 + 平台代理）"""
+    api = _researches_api(cfg)
+    url = api.rstrip("/") + "/v1/deploy"
+    files = []
+    content_types = {
+        ".html": "text/html; charset=utf-8",
+        ".htm": "text/html; charset=utf-8",
+        ".css": "text/css; charset=utf-8",
+        ".js": "application/javascript; charset=utf-8",
+        ".mjs": "application/javascript; charset=utf-8",
+        ".json": "application/json; charset=utf-8",
+        ".png": "image/png",
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".gif": "image/gif",
+        ".svg": "image/svg+xml",
+        ".webp": "image/webp",
+        ".ico": "image/x-icon",
+        ".txt": "text/plain; charset=utf-8",
+        ".md": "text/markdown; charset=utf-8",
+        ".pdf": "application/pdf",
+        ".xml": "application/xml; charset=utf-8",
+        ".woff2": "font/woff2",
+        ".woff": "font/woff",
+        ".ttf": "font/ttf",
+        ".csv": "text/csv; charset=utf-8",
+        ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        ".zip": "application/zip",
+    }
+    total = 0
+    for root, _dirs, fnames in os.walk(site_dir):
+        for fn in fnames:
+            full = os.path.join(root, fn)
+            rel = os.path.relpath(full, site_dir).replace("\\", "/")
+            with open(full, "rb") as f:
+                data = f.read()
+            files.append({
+                "path": rel,
+                "base64": base64.b64encode(data).decode("ascii"),
+                "content_type": content_types.get(os.path.splitext(fn)[1].lower(),
+                                                  mimetypes.guess_type(fn)[0] or "application/octet-stream"),
+            })
+            total += len(data)
+    if not files:
+        warn("dist 目录为空")
+        return False, None
+    payload = {
+        "name": name,
+        "title": title,
+        "files": files,
+        "origin": "skill",
+    }
+    body = json.dumps(payload).encode("utf-8")
+    log("POST %s  (共 %d 个文件, %s)" % (url, len(files), _human_size(total)))
+    req = urllib.request.Request(url, data=body, method="POST",
+                                 headers={"Content-Type": "application/json", "User-Agent": "site-forge/1.0"})
+    try:
+        with urllib.request.urlopen(req, timeout=300) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+    except urllib.error.HTTPError as e:
+        try:
+            err = json.loads(e.read().decode("utf-8"))
+        except Exception:
+            err = {}
+        warn("researches 部署失败: HTTP %s %s" % (e.code, err.get("error", e.reason or "")))
+        return False, None
+    except Exception as e:
+        warn("researches 部署失败: %s" % e)
+        return False, None
+    if data.get("ok"):
+        return True, data.get("url") or "https://%s.researches.cn/" % name
+    warn("researches 部署失败: %s" % data.get("error", "未知错误"))
+    return False, None
+
+def verify_researches(cfg, url, timeout=15):
+    """部署后主动验证站点 URL 可访问（返回是否成功）"""
+    import urllib.parse as _up
+    api = _researches_api(cfg)
+    api_netloc = _up.urlparse(api).netloc
+    # 若 api_endpoint 是本地/内网（非公网域名），用 Host 头模拟泛域名访问；否则直接访问公网 URL
+    if api_netloc.startswith("127.0.0.1") or api_netloc.startswith("localhost") or api_netloc.startswith("0.0.0.0"):
+        host = _up.urlparse(url).hostname
+        scheme = "http"
+        port = _up.urlparse(api).port or 80
+        base = "%s://%s:%d" % (scheme, "127.0.0.1", port)
+        verify_url = base + "/"
+        req = urllib.request.Request(verify_url, headers={"User-Agent": "site-forge/1.0", "Host": host or "", "X-SiteForge-Verify": "1"})
+    else:
+        req = urllib.request.Request(url, headers={"User-Agent": "site-forge/1.0", "X-SiteForge-Verify": "1"})
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            if resp.status == 200:
+                return True
+    except Exception as e:
+        warn("站点验证失败（域名/证书可能尚未生效）: %s" % e)
+    return False
+
+def _human_size(n):
+    for unit in ("B", "KB", "MB", "GB"):
+        if n < 1024:
+            return "%.1f%s" % (n, unit)
+        n /= 1024
+    return "%d%s" % (n, "GB")
 
 
 # --------------------------- EdgeOne Makers ---------------------------
@@ -459,11 +608,12 @@ def parse_url_from_output(out):
     return None
 
 
-PROVIDERS = ["edgeone", "github", "cloudflare", "sealos"]
+PROVIDERS = ["researches", "edgeone", "github", "cloudflare", "sealos"]
 
 
 def detect_all(cfg):
     det = {
+        "researches": detect_researches(cfg),
         "edgeone": detect_edgeone(cfg),
         "github": detect_github(cfg),
         "cloudflare": detect_cloudflare(cfg),
@@ -483,7 +633,16 @@ def print_guide(det, cfg):
         ok, msg = det[k]
         print("  %-10s %s  %s" % (k, "OK" if ok else "NO", msg))
     print()
-    print("推荐配置（国内访问最快，免费）:腾讯 EdgeOne Makers")
+    print("方案 A · SiteForge 平台（*.researches.cn 二级域名，推荐）:")
+    print("  1) 在任一联网环境（如 Sealos Devbox）验证 API 可达:")
+    print("     curl %s/healthz" % RESEARCHES_API_URL)
+    print("  2) 写入凭证（一次即可，跨项目复用）:")
+    print()
+    print('     mkdir -p ~/.site-forge && echo \'{ "researches": { "api_endpoint": "%s" }, "preferred": "researches" }\' > ~/.site-forge/config.json' % RESEARCHES_API_URL)
+    print()
+    print("  3) 重新执行部署命令即可上线: python scripts/deploy.py --site-dir dist/ --name <站点名>")
+    print()
+    print("方案 B · 腾讯 EdgeOne Makers（国内访问快，免费）:")
     print("  1) 打开 https://edgeone.cloud.tencent.com/pages ，登录腾讯云账号（微信/QQ 即可）")
     print("  2) 控制台 -> 项目 -> API Token 标签页 -> 创建 API Token")
     print("  3) 复制 Token，执行:")
@@ -498,7 +657,7 @@ def print_guide(det, cfg):
 
 def deploy(cfg, site_dir, name, provider=None, title="我的个人网站"):
     det = detect_all(cfg)
-    preferred = (cfg.get("preferred") or "edgeone").lower()
+    preferred = (cfg.get("preferred") or "researches").lower()
     order = PROVIDERS if provider else ([preferred] + [p for p in PROVIDERS if p != preferred])
     if provider:
         order = [provider]
@@ -511,7 +670,9 @@ def deploy(cfg, site_dir, name, provider=None, title="我的个人网站"):
                 warn("provider=%s 不可用:%s" % (p, msg))
             continue
         log("使用 %s 部署..." % msg)
-        if p == "edgeone":
+        if p == "researches":
+            ok2, url = deploy_researches(cfg, site_dir, name, title)
+        elif p == "edgeone":
             ok2, url = deploy_edgeone(cfg, site_dir, name, title)
         elif p == "github":
             ok2, url = deploy_github(cfg, site_dir, name, title)
@@ -527,26 +688,117 @@ def deploy(cfg, site_dir, name, provider=None, title="我的个人网站"):
             print("  [OK]  部署成功！")
             print()
             print("  URL:  访问链接: %s" % (url or "(请查看上方 CLI 输出)"))
+            # 对 researches 平台做部署后验证
+            if p == "researches" and url:
+                if verify_researches(cfg, url):
+                    print("  VERIFY:  在线验证通过 ✔")
+                else:
+                    print("  VERIFY:  [WARN] 部署已提交，但域名/证书可能尚未生效，稍后访问")
             print("  UPDATE:  更新方法: 修改 config.json -> python scripts/build_site.py --config config.json --out dist/ -> python scripts/deploy.py --site-dir dist/ --name %s" % name)
+            print("  DELETE:  删除站点: python scripts/deploy.py --delete --name %s --provider researches" % name)
             print("=" * 64)
+            # 回写 config.json 的 site_url，让下次 build 的 OG 标签指向真实地址
+            if p == "researches" and url and os.path.isdir(site_dir):
+                _write_site_url(site_dir, url, name)
             return 0
         else:
             warn("%s 部署失败，尝试下一平台..." % p)
     print_guide(det, cfg)
     return 1
 
+def _write_site_url(site_dir, url, name):
+    """把部署后的真实地址写回 site-dir 的 config.json（若存在 site 配置）"""
+    cfg_path = os.path.join(site_dir, "config.json")
+    if not os.path.isfile(cfg_path):
+        # 站点目录里没有 config.json，检查上一级（dist 常见于项目子目录）
+        parent = os.path.dirname(os.path.abspath(site_dir))
+        cand = os.path.join(parent, "config.json")
+        if os.path.isfile(cand):
+            cfg_path = cand
+        else:
+            return
+    try:
+        with open(cfg_path, "r", encoding="utf-8") as f:
+            cfg = json.load(f)
+        cur = (cfg.get("site", {}) or {}).get("site_url") or ""
+        # 若尚未设置（占位符/空），写入真实地址
+        if not cur or cur.startswith("https://YOUR-SITE") or cur.endswith("edgeone.site") or "example." in cur:
+            cfg.setdefault("site", {})["site_url"] = url.rstrip("/")
+            with open(cfg_path, "w", encoding="utf-8") as f:
+                json.dump(cfg, f, ensure_ascii=False, indent=2)
+            log("已把站点地址写入 %s 的 site.site_url = %s" % (cfg_path, url.rstrip("/")))
+    except Exception as e:
+        warn("回写 site_url 失败: %s" % e)
+
+def delete_researches(cfg, name):
+    """通过 api.researches.cn 删除站点（需要管理员令牌 X-SiteForge-Token）"""
+    api = _researches_api(cfg)
+    url = api.rstrip("/") + "/v1/sites/" + name
+    token = (cfg.get("researches") or {}).get("admin_token") or os.environ.get("SF_ADMIN_TOKEN") or ""
+    headers = {"User-Agent": "site-forge/1.0"}
+    if token:
+        headers["X-SiteForge-Token"] = token
+    req = urllib.request.Request(url, method="DELETE", headers=headers)
+    try:
+        with urllib.request.urlopen(req, timeout=60) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+    except urllib.error.HTTPError as e:
+        try:
+            err = json.loads(e.read().decode("utf-8"))
+        except Exception:
+            err = {}
+        warn("删除失败: HTTP %s %s" % (e.code, err.get("error", e.reason or "")))
+        if e.code == 403:
+            warn("删除站点需要管理员令牌：请在 ~/.site-forge/config.json 的 researches.admin_token 配置（或环境变量 SF_ADMIN_TOKEN）")
+        return False
+    except Exception as e:
+        warn("删除失败: %s" % e)
+        return False
+    if data.get("ok"):
+        return True
+    warn("删除失败: %s" % data.get("error", "未知错误"))
+    return False
+
 
 def main():
     ap = argparse.ArgumentParser(description="个人网站一键搭建 . 100% 自动化部署")
     ap.add_argument("--site-dir", default="dist", help="站点输出目录")
-    ap.add_argument("--name", required=True, help="站点名（唯一，纯小写字母数字连字符）")
+    ap.add_argument("--name", help="站点名（唯一，小写字母数字连字符；缺省自动从站点标题生成）")
     ap.add_argument("--title", default="我的个人网站", help="站点标题")
     ap.add_argument("--provider", choices=PROVIDERS, help="指定部署平台")
     ap.add_argument("--check", action="store_true", help="仅检测环境可用性")
+    ap.add_argument("--delete", action="store_true", help="删除站点（researches 平台需要管理员令牌）")
     args = ap.parse_args()
+
+    # 站点名预校验（与平台一致：小写字母数字连字符、不以 - 首尾）
+    if args.name:
+        name = args.name.strip().lower()
+        if not re.match(r"^[a-z0-9](?:[a-z0-9-]{0,60}[a-z0-9])?$", name):
+            sys.exit("站点名非法：仅允许小写字母数字与连字符（2-63 字符），且不能以 - 开头/结尾")
+    else:
+        # 未指定 name：从标题自动生成（也可被 config 的 site.name 覆盖）
+        name = slugify(args.title or "my-site")
+        print("[deploy] 站点名未指定，已自动生成: %s" % name)
 
     ensure_config_exists()
     cfg = load_config()
+
+    if args.delete:
+        provider = args.provider or "researches"
+        if provider != "researches":
+            sys.exit("--delete 目前仅支持 researches 平台")
+        if not detect_researches(cfg)[0]:
+            sys.exit("researches 平台不可达，无法删除")
+        print()
+        print("=" * 64)
+        print("  删除站点: %s.researches.cn" % name)
+        print("  （该操作会清除 S3 上的站点文件，且需要管理员令牌）")
+        print("=" * 64)
+        if delete_researches(cfg, name):
+            print("\n  [OK]  站点已删除: %s.researches.cn\n" % name)
+            return 0
+        return 1
+
     det = detect_all(cfg)
     log("环境检测: " + ", ".join("%s=%s" % (k, "OK" if v[0] else "NO") for k, v in det.items()))
 
@@ -555,7 +807,7 @@ def main():
             print("%-10s %s  %s" % (k, "OK" if ok else "NO", msg))
         return 0
 
-    sys.exit(deploy(cfg, args.site_dir, args.name, args.provider, args.title))
+    sys.exit(deploy(cfg, args.site_dir, name, args.provider, args.title))
 
 
 if __name__ == "__main__":
