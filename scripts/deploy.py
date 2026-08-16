@@ -193,9 +193,15 @@ def deploy_researches(cfg, site_dir, name, title):
         "origin": "skill",
     }
     body = json.dumps(payload).encode("utf-8")
+    headers = {"Content-Type": "application/json", "User-Agent": "site-forge/1.0"}
+    # 部署令牌：优先 config.json 的 researches.deploy_token，其次环境变量 SF_DEPLOY_TOKEN
+    deploy_token = (cfg.get("researches") or {}).get("deploy_token") or os.environ.get("SF_DEPLOY_TOKEN") or ""
+    if deploy_token:
+        headers["X-SiteForge-Deploy-Token"] = deploy_token
+    else:
+        warn("未配置 researches.deploy_token（可先在 https://www.researches.cn/ 输入创作者机构名称获取）")
     log("POST %s  (共 %d 个文件, %s)" % (url, len(files), _human_size(total)))
-    req = urllib.request.Request(url, data=body, method="POST",
-                                 headers={"Content-Type": "application/json", "User-Agent": "site-forge/1.0"})
+    req = urllib.request.Request(url, data=body, method="POST", headers=headers)
     try:
         with urllib.request.urlopen(req, timeout=300) as resp:
             data = json.loads(resp.read().decode("utf-8"))
@@ -691,7 +697,7 @@ def deploy(cfg, site_dir, name, provider=None, title="我的个人网站"):
             # 对 researches 平台做部署后验证
             if p == "researches" and url:
                 if verify_researches(cfg, url):
-                    print("  VERIFY:  在线验证通过 ✔")
+                    print("  VERIFY:  在线验证通过 OK")
                 else:
                     print("  VERIFY:  [WARN] 部署已提交，但域名/证书可能尚未生效，稍后访问")
             print("  UPDATE:  更新方法: 修改 config.json -> python scripts/build_site.py --config config.json --out dist/ -> python scripts/deploy.py --site-dir dist/ --name %s" % name)
